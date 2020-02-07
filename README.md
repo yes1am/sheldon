@@ -1,6 +1,8 @@
-<div style="text-align:center;">
-<img src='https://raw.githubusercontent.com/yes1am/PicBed/master/img/magic-hat.png' style="width: 100px;">
-</div>
+<p align="center">
+  <a href="https://github.com/yes1am/sheldon">
+    <img width="200" src='https://raw.githubusercontent.com/yes1am/PicBed/master/img/magic-hat.png'>
+  </a>
+</p>
 
 一款私人订制的 App，基于 React Native，致力于满足我在移动端的各类需求。  
 
@@ -26,6 +28,7 @@
 ## 打包 APK
 
 [参考文档](https://reactnative.cn/docs/signed-apk-android/#%E7%94%9F%E6%88%90%E4%B8%80%E4%B8%AA%E7%AD%BE%E5%90%8D%E5%AF%86%E9%92%A5)  
+
 `cd android`  
 `./gradlew assembleRelease`  
 
