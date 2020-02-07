@@ -21,61 +21,100 @@ import {
 
 import AsyncStorage from '@react-native-community/async-storage';
 
-async function getTitleFromUrl(url) {
-  if (!url) {
-    return '';
-  }
-  try {
-    const res = await axios({
-      url,
-      method: 'get',
-    });
-    if (res && res.data) {
-      const title = res.data.match('<title.*>(.*)</title>')[1];
-      return title;
-    }
-    return '';
-  } catch (e) {
-    console.log(`getTitleFromUrl: ${url} error,`, e);
-    return '';
-  }
-}
+const GITHUB_REPO = 'PiggyBank';
 
 class App extends React.Component {
   constructor(props) {
     super(props);
-    this.state = {
-      sharedUrl: '',
-      token: '',
-      info: '',
-    };
     this.timer = null;
     const {sharedUrl} = this.props;
-    if (sharedUrl) {
-      this.saveUrlRemote();
-    }
+    this.state = {
+      sharedUrl,
+      preSharedUrl: sharedUrl || 'eg: example.com',
+      token: '',
+      message: '',
+      loading: false,
+      title: '',
+    };
   }
 
   componentDidMount() {
+    this.saveUrlRemote();
     this.getStorage('token').then(token => {
       this.setState({token});
     });
   }
 
+  async getTitleFromUrl(url) {
+    if (!url) {
+      this.showMessage('getTitleFromUrl 失败, url 不能为空');
+      return '';
+    }
+    try {
+      this.showMessage('正在加载 title');
+      this.setState({
+        loading: true,
+      });
+      const res = await axios({
+        url,
+        method: 'get',
+      });
+
+      this.setState({
+        loading: false,
+      });
+
+      if (res && res.data) {
+        const matches = res.data.match('<title.*>((.|\n)*)</title>');
+        const title = matches ? matches[1].trim() : '';
+        if (title) {
+          this.setState({
+            title,
+          });
+          console.log('title:', title);
+          this.showMessage('获取 title 成功');
+        }
+        return title;
+      }
+      this.showMessage('获取 title 失败, 请手动输入 title');
+      return '';
+    } catch (e) {
+      console.log(`getTitleFromUrl: ${url} error,`, e);
+      this.showMessage('获取 title 失败, 请手动输入 title');
+      this.setState({
+        loading: false,
+      });
+      return '';
+    }
+  }
+
   async saveUrlRemote() {
-    const {sharedUrl} = this.props;
+    let {sharedUrl, title} = this.state;
+    if (!sharedUrl) {
+      return this.showMessage('请先填入 url');
+    }
     const token = await this.getStorage('token');
     if (!token) {
-      return;
+      return this.showMessage('请先填入 token');
     }
-    console.log('start saveUrlRemote:', sharedUrl);
-    const title = await getTitleFromUrl(sharedUrl);
+
+    if (!title) {
+      title = await this.getTitleFromUrl(sharedUrl);
+    }
+
     if (!title) {
       return;
     }
+
+    console.log(`saveUrlRemote start: url:${sharedUrl}, title: ${title}`);
+    this.setState({
+      loading: true,
+      message: '正在保存...',
+    });
+
     axios({
       method: 'post',
-      url: 'https://api.github.com/repos/yes1am/PiggyBank/issues',
+      url: `https://api.github.com/repos/yes1am/${GITHUB_REPO}/issues`,
       headers: {
         'Content-Type': 'application/json',
         Authorization: `token ${token}`,
@@ -87,13 +126,22 @@ class App extends React.Component {
     })
       .then(response => {
         if (response.data) {
-          console.log('success');
-          this.showSuccessInfo('发送到 github 成功');
+          console.log('saveUrlRemote success!');
+          this.setState({
+            loading: false,
+            sharedUrl: '',
+            title: '',
+            preSharedUrl: sharedUrl,
+          });
+          this.showMessage('发送至 Github 成功');
         }
       })
       .catch(err => {
         console.log('err', err);
-        this.showSuccessInfo('发送到 github 失败');
+        this.setState({
+          loading: false,
+        });
+        this.showMessage('发送至 Github 失败');
       });
   }
 
@@ -121,30 +169,51 @@ class App extends React.Component {
   }
 
   onChangeToken(token) {
-    this.setState({token});
+    this.setState({
+      token,
+    });
   }
 
   onSaveToken() {
     const {token} = this.state;
     this.setStorage({key: 'token', value: token}, () => {
-      this.showSuccessInfo('保存 token 成功');
+      this.showMessage('保存 token 成功');
     });
   }
 
-  showSuccessInfo(successInfo = 'success', duration = 1500) {
+  showMessage(message = 'success', duration = 1500) {
     this.setState({
-      info: successInfo,
+      message,
     });
     clearTimeout(this.timer);
     this.timer = setTimeout(() => {
       this.setState({
-        info: '',
+        message: '',
       });
     }, duration);
   }
 
+  onURLChange(sharedUrl) {
+    this.setState({
+      sharedUrl,
+    });
+  }
+
+  onTitleChange(title) {
+    this.setState({
+      title,
+    });
+  }
+
   render() {
-    const {sharedUrl, token, info} = this.state;
+    const {
+      sharedUrl,
+      preSharedUrl,
+      token,
+      message,
+      loading,
+      title,
+    } = this.state;
     return (
       <>
         {/* 状态栏，信号，电量 */}
@@ -154,24 +223,41 @@ class App extends React.Component {
             contentInsetAdjustmentBehavior="automatic"
             style={styles.scrollView}>
             <TextInput
-              style={styles.tokenInput}
               onChangeText={token => this.onChangeToken(token)}
               placeholder="token"
               value={token}
             />
-            <View style={styles.body}>
-              {sharedUrl ? (
-                <Text> receive {sharedUrl}</Text>
-              ) : (
-                <Text> 暂无分享链接 </Text>
-              )}
-            </View>
-            {!!info && <Text> {info} </Text>}
             <Button
               onPress={() => this.onSaveToken()}
               title="save token"
-              color="#841584"
+              color="#ff4d4f"
             />
+            <View style={styles.body}>
+              {!!preSharedUrl && (
+                <>
+                  <Text>Previous Send</Text>
+                  <TextInput editable={false} value={preSharedUrl} />
+                </>
+              )}
+              <Text>Share</Text>
+              <TextInput
+                placeholder="title"
+                onChangeText={title => this.onTitleChange(title)}
+                value={title}
+              />
+              <TextInput
+                placeholder="url"
+                onChangeText={sharedUrl => this.onURLChange(sharedUrl)}
+                value={sharedUrl}
+              />
+            </View>
+            <Button
+              onPress={() => this.saveUrlRemote()}
+              title="Share"
+              color="#1890ff"
+              disabled={loading}
+            />
+            {!!message && <Text style={styles.message}> {message} </Text>}
           </ScrollView>
         </SafeAreaView>
       </>
@@ -186,13 +272,11 @@ const styles = StyleSheet.create({
   body: {
     backgroundColor: '#FFF',
   },
-  center: {
+  message: {
     textAlign: 'center',
-  },
-  tokenInput: {
-    height: 40,
-    borderColor: 'gray',
-    borderWidth: 1,
+    color: 'red',
+    backgroundColor: '#fff',
+    lineHeight: 40,
   },
 });
 
