@@ -6,6 +6,9 @@
  * @flow
  */
 
+// curl test
+// curl -X POST -d "{\"title\": \"Here's To You\",\"body\": \"123\"}" -H 'Authorization: token 【token】' https://api.github.com/repos/yes1am/PiggyBank/issues -H 'Content-Type: application/json'
+
 import React from 'react';
 import axios from 'axios';
 import {
@@ -41,7 +44,9 @@ class App extends React.Component {
   componentDidMount() {
     this.saveUrlRemote();
     this.getStorage('token').then(token => {
-      this.setState({token});
+      if (token) {
+        this.setState({token});
+      }
     });
   }
 
@@ -51,7 +56,7 @@ class App extends React.Component {
       return '';
     }
     try {
-      this.showMessage('正在加载 title');
+      this.showMessage('正在加载 title...', false);
       this.setState({
         loading: true,
       });
@@ -59,7 +64,6 @@ class App extends React.Component {
         url,
         method: 'get',
       });
-
       this.setState({
         loading: false,
       });
@@ -73,6 +77,8 @@ class App extends React.Component {
           });
           console.log('title:', title);
           this.showMessage('获取 title 成功');
+        } else {
+          this.showMessage('解析 title 失败，正则匹配无结果，请手动输入 title');
         }
         return title;
       }
@@ -89,11 +95,11 @@ class App extends React.Component {
   }
 
   async saveUrlRemote() {
-    let {sharedUrl, title} = this.state;
+    let {sharedUrl, title, token: stateToken} = this.state;
     if (!sharedUrl) {
       return this.showMessage('请先填入 url');
     }
-    const token = await this.getStorage('token');
+    const token = (await this.getStorage('token')) || stateToken;
     if (!token) {
       return this.showMessage('请先填入 token');
     }
@@ -141,7 +147,9 @@ class App extends React.Component {
         this.setState({
           loading: false,
         });
-        this.showMessage('发送至 Github 失败');
+        this.showMessage(
+          `发送至 Github 失败: ${err.toString()}, with token, ${token}`,
+        );
       });
   }
 
@@ -181,15 +189,17 @@ class App extends React.Component {
     });
   }
 
-  showMessage(message = 'success', duration = 1500) {
+  showMessage(message = 'success', autoClear = true, duration = 1500) {
     this.setState({
       message,
     });
     clearTimeout(this.timer);
     this.timer = setTimeout(() => {
-      this.setState({
-        message: '',
-      });
+      if (autoClear) {
+        this.setState({
+          message: '',
+        });
+      }
     }, duration);
   }
 
