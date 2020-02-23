@@ -33,3 +33,9 @@
 `./gradlew assembleRelease`  
 
 生成的 apk 文件: `android/app/build/outputs/apk/release/app-release.apk`
+
+## 发布
+
+1. 升级版本: `npm version [ major | minor | patch ]`  
+2. 推送代码: `git push`
+3. 推送 tag: `git push origin --tags`
